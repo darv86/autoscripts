@@ -1,0 +1,2 @@
+# autoscripts
+scirpts for automaitzation 

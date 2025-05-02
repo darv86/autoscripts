@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo 'Backuper is running now...'
+# echo 'Backuper is running now...'
 
 # tar -czvf /d/backups/archive.tar.gz -C ~/AppData/Roaming/librewolf/profiles/*.default-default/ ./
 
@@ -9,10 +9,15 @@ echo 'Backuper is running now...'
 procid=$( pgrep -x librewolf )
 # $? stores execution code of the previous command (pgrep);
 # $? can be 0 (execution success) and non-zero (error code)
-if [ $? = 0 ]; then kill $procid; fi
+# if [ $? = 0 ]; then kill $procid; fi
 # this two lines can be refactored to:
 # if procid=$( pgrep -x librewolf ); then kill $procid; fi
 
+# echo $(date "+%H-%M-%d-%m-%Y")
+
+backupNameDefault=backup-$(date "+%H-%M-%d-%m-%Y")
+backupName=$backupNameDefault
+echo $backupName
 # srcPath=/home/rd/.librewolf
 srcPath=/home/rd/.var/app/io.gitlab.librewolf-community/.librewolf/
 destPath=/mnt/C050F4F250F4F050/backups
@@ -25,7 +30,7 @@ destPath=/mnt/C050F4F250F4F050/backups
 # can be reason of an error
 if [ ! -d "$srcPath" ]; then echo 'error 1: wrong source'; exit 1; fi
 
-# if there is no profile's directory, bash will solve the glob,
+# if there is no profile's directory, bash will evaluate the glob,
 # as a string '*.default-default' and basename will assign this string to $profile
 profile=$(basename "$srcPath"/*.default-default)
 if [ -z "$profile" ] || [ "$profile" = "*.default-default" ]; then
@@ -33,16 +38,30 @@ if [ -z "$profile" ] || [ "$profile" = "*.default-default" ]; then
 	exit 2
 fi
 
+flags="mx"
+flagsCustom=""
+
+while getopts "xm" option; do
+    case $option in
+		x|m) flagsCustom=$flagsCustom$option;;
+    esac
+done
+
+if [ -n "$flagsCustom" ]; then flags=$flagsCustom; fi
+
+echo $flags
+
 # -f flag should stand right before the file path
 # tar -czvf "$destPath/librewolf-backup-test.tar.gz" -C "$srcPath" "$profile"
 
 # -e flag enables backslashes interpretation (escape sequences)
-echo -e "Source to archive: $srcPath"
-echo -e "Destination: $destPath"
+# echo -e "Source to archive: $srcPath"
+# echo -e "Destination: $destPath"
 echo 'Backuper done'
 
 # bash designed to work with string,
-# thats why c=$a+$b just will concat to strings
+# that's why c=$a+$b just will concat to strings and
+# + symbol here is a string
 # a=2; b=3
 # there are a few variants to do correct math:
 # c=$[$a + $b + 2 + 5]
@@ -52,15 +71,18 @@ echo 'Backuper done'
 # let "c = a + b + 2 + 5"
 # echo $c
 
+# $* - similar to `$@` but treats all arguments
+#      as a single string when quoted
 # $* - all arguments
-# * - also just wild card can be use (instead of $*), stores all files near this script
+# * - also just wild card can be use (instead of $*),
+#     stores all files near this script
 # arg - identifier (variable) with an argument itself (value was passed)
 # for arg in $*
 # do
 # 	# $0 - name of the command (./backuper.sh)
 # 	echo $0
 # 	echo $arg
-# 	# $# - number of arguments
+# 	$# - number of arguments
 # 	echo $#
 # done
 # another syntax to make for loop

@@ -2,74 +2,117 @@
 
 # echo 'Backuper is running now...'
 
-# tar -czvf /d/backups/archive.tar.gz -C ~/AppData/Roaming/librewolf/profiles/*.default-default/ ./
+command=(tar)
 
-# $() syntax allows to have result of the command (pgrep);
-# -x flag makes strict search according to the word (librewolf)
-procid=$( pgrep -x librewolf )
-# $? stores execution code of the previous command (pgrep);
-# $? can be 0 (execution success) and non-zero (error code)
-# if [ $? = 0 ]; then kill $procid; fi
-# this two lines can be refactored to:
-# if procid=$( pgrep -x librewolf ); then kill $procid; fi
+flagsDefault="czvf"
+backupNameDefault=backup-$(date "+%H-%M-%d-%m-%Y").tar.gz
+# srcPath=/home/rd/.var/app/io.gitlab.librewolf-community/.librewolf/
+# destPath=/mnt/C050F4F250F4F050/backups
+srcPathDefault=/mnt/C050F4F250F4F050/dev/autoscripts/test/src/*subdir
+destPathDefault=/mnt/C050F4F250F4F050/dev/autoscripts/test/dest/${backupNameDefault}
 
-# echo $(date "+%H-%M-%d-%m-%Y")
-
-backupNameDefault=backup-$(date "+%H-%M-%d-%m-%Y")
-backupName=$backupNameDefault
-echo $backupName
-# srcPath=/home/rd/.librewolf
-srcPath=/home/rd/.var/app/io.gitlab.librewolf-community/.librewolf/
-destPath=/mnt/C050F4F250F4F050/backups
-
-# -e flag is specific to conditional expression [],
-# check if file or directory exists;
-# -d check if a directory;
-# good practice to quote variables inside [],
-# coz empty string or variable with the string that includes spaces,
-# can be reason of an error
-if [ ! -d "$srcPath" ]; then echo 'error 1: wrong source'; exit 1; fi
-
-# if there is no profile's directory, bash will evaluate the glob,
-# as a string '*.default-default' and basename will assign this string to $profile
-profile=$(basename "$srcPath"/*.default-default)
-if [ -z "$profile" ] || [ "$profile" = "*.default-default" ]; then
-	echo 'error 2: no profile detected'
-	exit 2
-fi
-
-flags="mx"
+flags=$flagsDefault
 flagsCustom=""
-
-while getopts "xm" option; do
+while getopts "cxzvf" option; do
     case $option in
-		x|m) flagsCustom=$flagsCustom$option;;
+		c|x|z|v|f) flagsCustom=$flagsCustom$option;;
     esac
 done
-
 if [ -n "$flagsCustom" ]; then flags=$flagsCustom; fi
 
-echo $flags
+if [ "$flags" == "x" ]; then
+	flags=${flagsDefault/c/x}
+fi
 
-# -f flag should stand right before the file path
-# tar -czvf "$destPath/librewolf-backup-test.tar.gz" -C "$srcPath" "$profile"
+# to check if string includes substring
+if [[ "$flags" == *x* ]]; then
+	flags=${flags//c/}
+	destPathDefault=/mnt/C050F4F250F4F050/dev/autoscripts/test/src/*subdir2
+	srcPathDefault=/mnt/C050F4F250F4F050/dev/autoscripts/test/dest/*backup*
+fi
 
-# -e flag enables backslashes interpretation (escape sequences)
-# echo -e "Source to archive: $srcPath"
-# echo -e "Destination: $destPath"
+command+=("$flags")
+
+# to expose wildcard * of the srcPathDefault, need two conditions:
+# 1. use command (e.g. echo)
+# 2. use variable (e.g. srcPathDefault) without quotes
+srcPath=$(echo $srcPathDefault)
+destPath=$(echo $destPathDefault)
+
+param1=${@:OPTIND:1}
+param2=${@:OPTIND+1:1}
+if [ -z "$param1" ]; then
+	param1="$srcPath"
+fi
+if [ -z "$param2" ]; then
+	param2="$destPath"
+fi
+
+if [ ! -e "$srcPath" ]; then
+	echo "error 1: wrong source"
+	exit 1
+fi
+
+if [[ "$srcPath" == *librewolf* || "$destPath" == *librewolf* ]]; then
+	# -x flag makes strict search according to the word (librewolf)
+	procid=$( pgrep -x librewolf )
+	if [ $? = 0 ]; then kill $procid; fi
+	# this two lines can be refactored to:
+	# if procid=$( pgrep -x librewolf ); then kill $procid; fi
+fi
+
+# command+=("$param2" -C "$param1" "./")
+command+=("$param1" -C "$param2")
+
+"${command[@]}"
+
 echo 'Backuper done'
 
-# bash designed to work with string,
-# that's why c=$a+$b just will concat to strings and
-# + symbol here is a string
-# a=2; b=3
+exit 0
+
+# -f flag should stand right before the file path
+# tar -czvf /d/backups/archive.tar.gz -C ~/AppData/Roaming/librewolf/profiles/*.default-default/ ./
+# tar -xzvf test/dest/backup-13-17-07-05-2025.tar.gz -C test/dest/
+# tar -xzvf test/dest/backup-17-08-07-05-2025.tar.gz --strip-components=1 -C test/dest/subdir
+# tar -tzvf test/dest/backup-13-49-08-05-2025.tar.gz
+
+# profile=$(basename "$srcPath"/*.default-default)
+# if [ -z "$profile" ] || [ "$profile" = "*.default-default" ]; then
+# 	echo 'error 2: no profile detected'
+# 	exit 2
+# fi
+
+# to check if string includes substring
+# if [[ "$flags" == *x* ]]; then
+# 	flags=${flags//c/}
+# fi
+# more heavier alternative
+# if echo "$flags" | grep -q "x"; then echo founded; fi
+
+# OPTIND - built-in variable (init value: 1);
+#          getopts increments OPTIND while looping over optional arguments
+#          so when getopts is done,
+#          OPTIND will have index of the 1st non-optional argument
+
+# array creation using brackets ();
+# "$@" expands every param as an array element;
+# quotes "" keeps params non-split, which have spaces inside
+# (e.g. "my param", not "my" "param")
+# original_args=("$@")
+# echo ${original_args[$(($OPTIND-1+1))]}
+# array length number
+# echo ${#original_args[@]}
+# array of each element index
+# echo ${!original_args[@]}
+# take element by index
+# echo ${original_args[0]}
+# // to take 2 elements from 1st index
+# echo ${original_args[@]:1:2}
+
+
 # there are a few variants to do correct math:
 # c=$[$a + $b + 2 + 5]
-# does the same
 # c=$(( $a + $b + 2 + 5 ))
-# does the same
-# let "c = a + b + 2 + 5"
-# echo $c
 
 # $* - similar to `$@` but treats all arguments
 #      as a single string when quoted
@@ -88,8 +131,6 @@ echo 'Backuper done'
 # another syntax to make for loop
 # for (( i=1; i<4; i++ ))
 # do echo $i; done
-
-exit 0
 
 # File Tests
 # 	-e file → Exists (file or directory)

@@ -1,2 +1,2 @@
 # autoscripts
-scirpts for automaitzation 
+scripts for automatization

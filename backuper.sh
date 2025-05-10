@@ -1,15 +1,16 @@
 #!/bin/bash
 
-# echo 'Backuper is running now...'
+echo 'Backuper is running now...'
 
 command=(tar)
 
+mode="archive"
 flagsDefault="czvf"
-backupNameDefault=backup-$(date "+%H-%M-%d-%m-%Y").tar.gz
-# srcPath=/home/rd/.var/app/io.gitlab.librewolf-community/.librewolf/
-# destPath=/mnt/C050F4F250F4F050/backups
-srcPathDefault=/mnt/C050F4F250F4F050/dev/autoscripts/test/src/*subdir
-destPathDefault=/mnt/C050F4F250F4F050/dev/autoscripts/test/dest/${backupNameDefault}
+srcPathDefault=/home/rd/.var/app/io.gitlab.librewolf-community/.librewolf
+destPathDefault=/mnt/C050F4F250F4F050/backups
+backupName=librewolf-backup-$(date "+%H-%M-%d-%m-%Y").tar.gz
+archiveName=$(basename "${destPathDefault}"/*librewolf-backup-*)
+targetName=$(basename "${srcPathDefault}"/*.default-default)
 
 flags=$flagsDefault
 flagsCustom=""
@@ -18,35 +19,29 @@ while getopts "cxzvf" option; do
 		c|x|z|v|f) flagsCustom=$flagsCustom$option;;
     esac
 done
-if [ -n "$flagsCustom" ]; then flags=$flagsCustom; fi
 
-if [ "$flags" == "x" ]; then
-	flags=${flagsDefault/c/x}
-fi
+[ -n "$flagsCustom" ] && flags=$flagsCustom
+[ "$flags" == "x" ] && flags=${flagsDefault/c/x}
 
-# to check if string includes substring
 if [[ "$flags" == *x* ]]; then
 	flags=${flags//c/}
-	destPathDefault=/mnt/C050F4F250F4F050/dev/autoscripts/test/src/*subdir2
-	srcPathDefault=/mnt/C050F4F250F4F050/dev/autoscripts/test/dest/*backup*
+	mode="extract"
 fi
 
 command+=("$flags")
 
-# to expose wildcard * of the srcPathDefault, need two conditions:
-# 1. use command (e.g. echo)
-# 2. use variable (e.g. srcPathDefault) without quotes
-srcPath=$(echo $srcPathDefault)
-destPath=$(echo $destPathDefault)
+if [ "${mode}" == "archive" ]; then
+	srcPath=$(echo $srcPathDefault)
+	destPath=$(echo $destPathDefault/${backupName})
+elif [ "${mode}" == "extract" ]; then
+	srcPath=$(echo $destPathDefault/$archiveName)
+	destPath=$(echo $srcPathDefault/$targetName)
+fi
 
 param1=${@:OPTIND:1}
 param2=${@:OPTIND+1:1}
-if [ -z "$param1" ]; then
-	param1="$srcPath"
-fi
-if [ -z "$param2" ]; then
-	param2="$destPath"
-fi
+srcPath=${param1:-$srcPath}
+destPath=${param2:-$destPath}
 
 if [ ! -e "$srcPath" ]; then
 	echo "error 1: wrong source"
@@ -54,17 +49,27 @@ if [ ! -e "$srcPath" ]; then
 fi
 
 if [[ "$srcPath" == *librewolf* || "$destPath" == *librewolf* ]]; then
-	# -x flag makes strict search according to the word (librewolf)
 	procid=$( pgrep -x librewolf )
-	if [ $? = 0 ]; then kill $procid; fi
-	# this two lines can be refactored to:
-	# if procid=$( pgrep -x librewolf ); then kill $procid; fi
+	[ $? -eq 0 ] && kill $procid
+	# loop until there is no precess
+	while pgrep -x librewolf > /dev/null; do
+		sleep 0.5
+	done
 fi
 
-# command+=("$param2" -C "$param1" "./")
-command+=("$param1" -C "$param2")
+if [ "${mode}" == "archive" ]; then
+	command+=("$destPath" -C "$srcPath" "$targetName")
+elif [ "${mode}" == "extract" ]; then
+	command+=("$srcPath" --strip-components=1 -C "$destPath")
+fi
 
 "${command[@]}"
+echo ${command[@]}
+
+if [ $? -ne 0 ]; then
+	echo "error 2: tar command failed"
+	exit 2
+fi
 
 echo 'Backuper done'
 
@@ -75,6 +80,18 @@ exit 0
 # tar -xzvf test/dest/backup-13-17-07-05-2025.tar.gz -C test/dest/
 # tar -xzvf test/dest/backup-17-08-07-05-2025.tar.gz --strip-components=1 -C test/dest/subdir
 # tar -tzvf test/dest/backup-13-49-08-05-2025.tar.gz
+
+# assigns default value (e.g. srcPath),
+# if 1st operand (e.g. param1) is unset or empty
+# param1=${param1:-$srcPath}
+# instead of these:
+# if [ -z "$param1" ]; then param1="$srcPath"; fi
+
+# to expose wildcard * of the srcPathDefault, need two conditions:
+# 1. use command (e.g. echo)
+# 2. use variable (e.g. srcPathDefault) without quotes
+# srcPath=$(echo $srcPathDefault)
+# destPath=$(echo $destPathDefault)
 
 # profile=$(basename "$srcPath"/*.default-default)
 # if [ -z "$profile" ] || [ "$profile" = "*.default-default" ]; then
@@ -108,7 +125,6 @@ exit 0
 # echo ${original_args[0]}
 # // to take 2 elements from 1st index
 # echo ${original_args[@]:1:2}
-
 
 # there are a few variants to do correct math:
 # c=$[$a + $b + 2 + 5]

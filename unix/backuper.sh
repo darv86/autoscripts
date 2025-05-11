@@ -3,7 +3,7 @@
 
 echo 'Backuper is running now...'
 
-command=(tar)
+command=(sudo tar)
 
 mode="archive"
 flagsDefault="czvf"
@@ -15,9 +15,12 @@ targetName=$(basename "${srcPathDefault}"/*.default-default)
 
 flags=$flagsDefault
 flagsCustom=""
-while getopts "cxzvf" option; do
+strip=--strip-components=1
+while getopts "cxszvf" option; do
     case $option in
 		c|x|z|v|f) flagsCustom=$flagsCustom$option;;
+		# 0 value for strip-components, default value
+		s) strip=--strip-components=0;;
     esac
 done
 
@@ -32,15 +35,16 @@ fi
 command+=("$flags")
 
 if [ "${mode}" == "archive" ]; then
-	srcPath=$(echo $srcPathDefault)
+	srcPath=$(echo $srcPathDefault/${targetName})
 	destPath=$(echo $destPathDefault/${backupName})
 elif [ "${mode}" == "extract" ]; then
 	srcPath=$(echo $destPathDefault/$archiveName)
 	destPath=$(echo $srcPathDefault/$targetName)
 fi
 
-param1=${@:OPTIND:1}
-param2=${@:OPTIND+1:1}
+# using syntax %/ removes last slash, if it exists
+param1=${@:OPTIND:1}; param1=${param1%/}
+param2=${@:OPTIND+1:1}; param2=${param2%/}
 srcPath=${param1:-$srcPath}
 destPath=${param2:-$destPath}
 
@@ -58,9 +62,11 @@ if [[ "$srcPath" == *librewolf* || "$destPath" == *librewolf* ]]; then
 fi
 
 if [ "${mode}" == "archive" ]; then
+	targetName=$(basename "${srcPath}")
+	srcPath=${srcPath/"/$targetName"/}
 	command+=("$destPath" -C "$srcPath" "$targetName")
 elif [ "${mode}" == "extract" ]; then
-	command+=("$srcPath" --strip-components=1 -C "$destPath")
+	command+=("$srcPath" "$strip" -C "$destPath")
 fi
 
 "${command[@]}"

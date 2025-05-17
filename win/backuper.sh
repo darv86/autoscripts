@@ -5,11 +5,13 @@ echo 'Backuper is running now...'
 
 command=(tar)
 
+currentDate=$(date "+%H-%M-%d-%m-%Y")
+backupExt=tar.gz
 mode="archive"
 flagsDefault="czvf"
 srcPathDefault=/c/Users/$USERNAME/AppData/Roaming/librewolf/Profiles
 destPathDefault=/d/backups
-backupName=librewolf-backup-$(date "+%H-%M-%d-%m-%Y").tar.gz
+backupName=librewolf-backup-$currentDate.$backupExt
 archiveName=$(basename "${destPathDefault}"/*librewolf-backup-*)
 targetName=$(basename "${srcPathDefault}"/*.default-default)
 
@@ -43,6 +45,9 @@ fi
 
 param1=${@:OPTIND:1}; param1=${param1%/}
 param2=${@:OPTIND+1:1}; param2=${param2%/}
+if [ "${mode}" == "archive" ] && [ -n "${param2}" ]; then
+	param2=${param2%.$backupExt}-$currentDate.$backupExt
+fi
 srcPath=${param1:-$srcPath}
 destPath=${param2:-$destPath}
 
@@ -52,7 +57,6 @@ if [ ! -e "$srcPath" ]; then
 fi
 
 if [[ "$srcPath" == *librewolf* || "$destPath" == *librewolf* ]]; then
-# Replace Linux-specific pgrep/kill with Windows-compatible commands
 	tasklist | grep -i librewolf > /dev/null
 	if [ $? -eq 0 ]; then
 		taskkill //F //IM librewolf.exe //T > /dev/null 2>&1

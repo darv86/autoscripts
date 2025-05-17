@@ -5,11 +5,13 @@ echo 'Backuper is running now...'
 
 command=(sudo tar)
 
+currentDate=$(date "+%H-%M-%d-%m-%Y")
+backupExt=tar.gz
 mode="archive"
 flagsDefault="czvf"
 srcPathDefault=/home/$USERNAME/.var/app/io.gitlab.librewolf-community/.librewolf
 destPathDefault=/mnt/C050F4F250F4F050/backups
-backupName=librewolf-backup-$(date "+%H-%M-%d-%m-%Y").tar.gz
+backupName=librewolf-backup-$currentDate.$backupExt
 archiveName=$(basename "${destPathDefault}"/*librewolf-backup-*)
 targetName=$(basename "${srcPathDefault}"/*.default-default)
 
@@ -19,7 +21,6 @@ strip=--strip-components=1
 while getopts "cxszvf" option; do
     case $option in
 		c|x|z|v|f) flagsCustom=$flagsCustom$option;;
-		# 0 value for strip-components, default value
 		s) strip=--strip-components=0;;
     esac
 done
@@ -42,9 +43,12 @@ elif [ "${mode}" == "extract" ]; then
 	destPath=$(echo $srcPathDefault/$targetName)
 fi
 
-# using syntax %/ removes last slash, if it exists
 param1=${@:OPTIND:1}; param1=${param1%/}
 param2=${@:OPTIND+1:1}; param2=${param2%/}
+# adds current date to an backup name
+if [ "${mode}" == "archive" ] && [ -n "${param2}" ]; then
+	param2=${param2%.$backupExt}-$currentDate.$backupExt
+fi
 srcPath=${param1:-$srcPath}
 destPath=${param2:-$destPath}
 
